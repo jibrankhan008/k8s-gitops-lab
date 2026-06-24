@@ -1,0 +1,23 @@
+{{- if .Values.daemonset.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "myapp.fullname" . }}-daemonset
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "myapp.fullname" . }}-daemonset
+
+  template:
+    metadata:
+      labels:
+        app: {{ include "myapp.fullname" . }}-daemonset
+
+    spec:
+      containers:
+        - name: nginx
+          image: "{{ .Values.daemonset.image.repository }}:{{ .Values.daemonset.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+{{- end }}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "myapp.fullname" . }}-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: {{ .Values.persistence.size }}
+
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+
+  hostPath:
+    path: {{ .Values.persistence.hostPath }}

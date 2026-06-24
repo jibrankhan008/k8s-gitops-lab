@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "myapp.fullname" . }}
+spec:
+  serviceName: {{ include "myapp.fullname" . }}-headless
+  replicas: {{ .Values.statefulset.replicas }}
+
+  selector:
+    matchLabels:
+      app: {{ include "myapp.fullname" . }}
+
+  template:
+    metadata:
+      labels:
+        app: {{ include "myapp.fullname" . }}
+
+    spec:
+      containers:
+        - name: mongodb
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          
+          ports:
+            - containerPort: 27017
+
+          volumeMounts:
+            - name: mongodb-storage
+              mountPath: /data/db
+
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-storage
+
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}

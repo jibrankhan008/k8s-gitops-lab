@@ -1,0 +1,224 @@
+---
+# Source: myapp/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dev-myapp
+  labels:
+    helm.sh/chart: myapp-0.1.0
+    app.kubernetes.io/name: myapp
+    app.kubernetes.io/instance: dev-myapp
+    app.kubernetes.io/version: "1.16.2"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: myapp/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev-myapp-secret
+type: Opaque 
+data:
+  DB_USER: amlicmFu
+  DB_PASSWORD: cGFzc3dvcmQxMjM=
+---
+# Source: myapp/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dev-myapp-config
+data:
+  ENV: production
+  LOG_LEVEL: info
+---
+# Source: myapp/templates/persistentvolume.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dev-myapp-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 1Gi
+
+  accessModes:
+    - ReadWriteOnce
+
+  hostPath:
+    path: /data/myapp
+---
+# Source: myapp/templates/persistentVolumeClaim.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dev-myapp-pvc
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: myapp/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-myapp
+  labels:
+    helm.sh/chart: myapp-0.1.0
+    app.kubernetes.io/name: myapp
+    app.kubernetes.io/instance: dev-myapp
+    app.kubernetes.io/version: "1.16.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: myapp
+    app.kubernetes.io/instance: dev-myapp
+---
+# Source: myapp/templates/statefulset_service.yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: dev-myapp-headless
+
+spec:
+  clusterIP: None
+
+  selector:
+    app: dev-myapp
+
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# Source: myapp/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-myapp
+  labels:
+    helm.sh/chart: myapp-0.1.0
+    app.kubernetes.io/name: myapp
+    app.kubernetes.io/instance: dev-myapp
+    app.kubernetes.io/version: "1.16.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: myapp
+      app.kubernetes.io/instance: dev-myapp
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: myapp-0.1.0
+        app.kubernetes.io/name: myapp
+        app.kubernetes.io/instance: dev-myapp
+        app.kubernetes.io/version: "1.16.2"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: dev-myapp
+      containers:
+        - name: myapp
+          image: "nginx:latest"
+
+          envFrom:
+            - configMapRef:
+                name: dev-myapp-config
+
+            - secretRef:
+                name: dev-myapp-secret
+
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+         
+          volumeMounts:
+            - name: app-storage
+              mountPath: /usr/share/nginx/html/data
+      volumes:
+        - name: app-storage
+          persistentVolumeClaim:
+            claimName: dev-myapp-pvc
+---
+# Source: myapp/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dev-myapp
+spec:
+  serviceName: dev-myapp-headless
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: dev-myapp
+
+  template:
+    metadata:
+      labels:
+        app: dev-myapp
+
+    spec:
+      containers:
+        - name: mongodb
+          image: "mongo:latest"
+          
+          ports:
+            - containerPort: 27017
+
+          volumeMounts:
+            - name: mongodb-storage
+              mountPath: /data/db
+
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-storage
+
+      spec:
+        accessModes:
+          - ReadWriteOnce
+
+        resources:
+          requests:
+            storage: 1Gi
+---
+# Source: myapp/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "dev-myapp-test-connection"
+  labels:
+    helm.sh/chart: myapp-0.1.0
+    app.kubernetes.io/name: myapp
+    app.kubernetes.io/instance: dev-myapp
+    app.kubernetes.io/version: "1.16.2"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['dev-myapp:80']
+  restartPolicy: Never
