@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: prd-myapp
+
+  namespace: argocd
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/jibrankhan008/k8s-gitops-lab.git
+  
+    targetRevision: main
+  
+    path: myapp
+
+  destination:
+    server: https://kubernetes.default.svc
+    
+    namespace: prd-myapp
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+
